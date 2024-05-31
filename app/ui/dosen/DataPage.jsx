@@ -1,12 +1,11 @@
-"use client"
 import React, { useState, useEffect } from 'react';
 import { Button } from 'antd';
-import axios from 'axios';
-import DosenTable from './DosenTable';
-import AddEditDosenModal from './AddEditDosenModal';
+import { fetchData, addItem, updateItem, deleteItem } from './fetchData';
+import DataTable from './DataTable';
+import AddEditModal from './AddEditModal';
 
-const DosenPage = () => {
-  const [dosen, setDosen] = useState([]);
+const DataPage = ({ endpoint }) => {
+  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -15,17 +14,17 @@ const DosenPage = () => {
   const [editingRecord, setEditingRecord] = useState(null);
 
   useEffect(() => {
-    fetchDosen();
+    fetchDataFromServer();
   }, [currentPage, pageSize]);
 
-  const fetchDosen = async () => {
+  const fetchDataFromServer = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`http://127.0.0.1:8000/api/dosen?page=${currentPage}&size=${pageSize}`);
-      setDosen(response.data.items);
-      setTotalElements(response.data.total_elements);
+      const response = await fetchData(endpoint, currentPage, pageSize);
+      setData(response.items);
+      setTotalElements(response.totalElements);
     } catch (error) {
-      console.error('Error fetching dosen:', error);
+      console.error(`Error fetching data:`, error);
     } finally {
       setLoading(false);
     }
@@ -33,39 +32,39 @@ const DosenPage = () => {
 
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/dosen/${id}`);
-      setDosen(dosen.filter((item) => item.id !== id));
+      await deleteItem(endpoint, id);
+      setData(data.filter((item) => item.id !== id));
     } catch (error) {
-      console.error('Error deleting dosen:', error);
+      console.error(`Error deleting record:`, error);
     }
   };
 
-  const handleAddDosen = async (newDosen) => {
+  const handleAddItem = async (newItem) => {
     try {
-      const response = await axios.post('http://127.0.0.1:8000/api/dosen', newDosen);
-      setDosen([...dosen, response.data]);
+      const addedItem = await addItem(endpoint, newItem);
+      setData([...data, addedItem]);
       setIsModalVisible(false);
     } catch (error) {
-      console.error('Error adding dosen:', error);
+      console.error(`Error adding record:`, error);
     }
   };
 
-  const handleEditDosen = async (editedDosen) => {
+  const handleEditItem = async (editedItem) => {
     try {
-      await axios.put(`http://127.0.0.1:8000/api/dosen${editedDosen.id}`, editedDosen);
-      const newData = [...dosen];
-      const index = newData.findIndex((item) => editedDosen.id === item.id);
-      newData[index] = editedDosen;
-      setDosen(newData);
+      await updateItem(endpoint, editedItem);
+      const newData = [...data];
+      const index = newData.findIndex((item) => editedItem.id === item.id);
+      newData[index] = editedItem;
+      setData(newData);
       setIsModalVisible(false);
     } catch (error) {
-      console.error('Error editing dosen:', error);
+      console.error(`Error editing record:`, error);
     }
   };
 
   const handleSave = (row) => {
     setEditingRecord(null);
-    handleEditDosen(row);
+    handleEditItem(row);
   };
 
   const showModal = (record = null) => {
@@ -79,19 +78,19 @@ const DosenPage = () => {
 
   const handleFormSubmit = async (values) => {
     if (editingRecord) {
-      await handleEditDosen({ ...editingRecord, ...values });
+      await handleEditItem({ ...editingRecord, ...values });
     } else {
-      await handleAddDosen(values);
+      await handleAddItem(values);
     }
   };
 
   return (
     <div>
-      <Button onClick={() => showModal()} style={{ marginBottom: 16 }}>
-        Add Dosen
+      <Button onClick={() => showModal()}  style={{ marginBottom: 16 }}>
+        + Tambah
       </Button>
-      <DosenTable
-        dosen={dosen}
+      <DataTable
+        data={data}
         handleSave={handleSave}
         handleDelete={handleDelete}
         loading={loading}
@@ -102,15 +101,15 @@ const DosenPage = () => {
         setPageSize={setPageSize}
         showModal={showModal}
       />
-      <AddEditDosenModal
+      <AddEditModal
         visible={isModalVisible}
         onCancel={handleCancel}
         onFinish={handleFormSubmit}
-        dosenTemplate={dosen[0] || {}}
+        template={data[0] || {}}
         editingRecord={editingRecord}
       />
     </div>
   );
 };
 
-export default DosenPage;
+export default DataPage;

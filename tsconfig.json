@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     "app/lib/placeholder-data.js",
     "scripts/seed.js"
-  ],
+, "app/ui/dosen/DataTable.jsx", "app/ui/dosen/App.jsx", "app/ui/dosen/AddEditModal.tsx", "app/ui/dosen/DataPage.jsx"  ],
   "exclude": ["node_modules"]
 }
