@@ -18,7 +18,7 @@ const RoomList: React.FC = () => {
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/rooms/');
+        const response = await fetch('http://127.0.0.1:8002/rooms/');
         const data = await response.json();
         setRooms(data);
       } catch (error) {
@@ -35,7 +35,7 @@ const RoomList: React.FC = () => {
 
   const handleDelete = async (roomId: number) => {
     try {
-      await fetch(`http://127.0.0.1:8000/rooms/${roomId}`, {
+      await fetch(`http://127.0.0.1:8002/rooms/${roomId}`, {
         method: 'DELETE',
       });
       setRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
@@ -46,7 +46,7 @@ const RoomList: React.FC = () => {
 
   const handleSave = async (roomId: number, updatedRoom: Room) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/rooms/${roomId}`, {
+      const response = await fetch(`http://127.0.0.1:8002/rooms/${roomId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -70,7 +70,7 @@ const RoomList: React.FC = () => {
 
   const handleAddRoom = async (newRoom: Room) => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/rooms/', {
+      const response = await fetch('http://127.0.0.1:8002/rooms/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

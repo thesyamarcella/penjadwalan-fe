@@ -1,174 +1,338 @@
-"use client"
-import React, { useState, useEffect } from 'react';
-import AddDosenModal from './AddDosenModal';
+  "use client"
+  import React, { useState, useEffect, useContext, useRef } from 'react';
+  import { Table, Input, Button, Popconfirm, Form, Typography, Modal } from 'antd';
+  import type { InputRef } from 'antd';
+  import type { FormInstance } from 'antd/es/form';
+  import axios from 'axios';
 
-interface Dosen {
-  id: number;
-  nip: string;
-  nidn: string;
-  id_pegawai: number;
-  inisial: string;
-  gelar_depan: string;
-  nama_depan: string;
-  nama_belakang: string;
-  gelar_belakang: string;
-  alamat: string;
-  agama: string;
-  telp_seluler: string;
-}
+  const EditableContext = React.createContext<FormInstance<any> | null>(null);
 
-const DosenList: React.FC = () => {
-  const [dosen, setdosen] = useState<Dosen[]>([]);
-  const [isNewDosenModalOpen, setIsNewDosenModalOpen] = useState<boolean>(false); 
-  const [isEditing, setIsEditing] = useState<number | null>(null);
+  interface Dosen {
+    id: number;
+    nip: string;
+    nidn: string;
+    id_pegawai: string;
+    inisial: string;
+    gelar_depan: string;
+    nama_depan: string;
+    nama_belakang: string;
+    gelar_belakang: string;
+    alamat: string;
+    agama: string;
+    telp_seluler: string;
+    created_at: string;
+    updated_at: string;
+  }
 
-  useEffect(() => {
-    const fetchdosen = async () => {
+  interface EditableRowProps {
+    index: number;
+  }
+
+  const EditableRow: React.FC<EditableRowProps> = ({ index, ...props }) => {
+    const [form] = Form.useForm();
+    return (
+      <Form form={form} component={false}>
+        <EditableContext.Provider value={form}>
+          <tr {...props} />
+        </EditableContext.Provider>
+      </Form>
+    );
+  };
+
+  interface EditableCellProps {
+    title: React.ReactNode;
+    editable: boolean;
+    children: React.ReactNode;
+    dataIndex: keyof Dosen;
+    record: Dosen;
+    handleSave: (record: Dosen) => void;
+  }
+
+  const EditableCell: React.FC<EditableCellProps> = ({
+    title,
+    editable,
+    children,
+    dataIndex,
+    record,
+    handleSave,
+    ...restProps
+  }) => {
+    const [editing, setEditing] = useState(false);
+    const inputRef = useRef<InputRef>(null);
+    const form = useContext(EditableContext)!;
+
+    useEffect(() => {
+      if (editing) {
+        inputRef.current?.focus();
+      }
+    }, [editing]);
+
+    const toggleEdit = () => {
+      setEditing(!editing);
+      form.setFieldsValue({ [dataIndex]: record[dataIndex] });
+    };
+
+    const save = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/dosen/');
-        const data = await response.json();
-        setdosen(data);
-      } catch (error) {
-        console.error('Error fetching dosen:', error);
+        const values = await form.validateFields();
+        toggleEdit();
+        handleSave({ ...record, ...values });
+      } catch (errInfo) {
+        console.log('Save failed:', errInfo);
       }
     };
 
-    fetchdosen();
-  }, []);
+    let childNode = children;
 
-  const handleEdit = (dosenId: number) => {
-    setIsEditing(dosenId);
-  };
-
-  const handleDelete = async (dosenId: number) => {
-    try {
-      await fetch(`http://127.0.0.1:8000/dosen/${dosenId}`, {
-        method: 'DELETE',
-      });
-      setdosen(prevdosen => prevdosen.filter(dosen => dosen.id !== dosenId));
-    } catch (error) {
-      console.error('Error deleting dosen:', error);
+    if (editable) {
+      childNode = editing ? (
+        <Form.Item
+          style={{ margin: 0 }}
+          name={dataIndex}
+          rules={[{ required: true, message: `${title} is required.` }]}
+        >
+          <Input ref={inputRef} onPressEnter={save} onBlur={save} />
+        </Form.Item>
+      ) : (
+        <div className="editable-cell-value-wrap" style={{ paddingRight: 24 }} onClick={toggleEdit}>
+          {children}
+        </div>
+      );
     }
+
+    return <td {...restProps}>{childNode}</td>;
   };
 
-  const handleSave = async (dosenId: number, updatedDosen: Dosen) => {
-    try {
-      const response = await fetch(`http://127.0.0.1:8000/dosen/${dosenId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedDosen),
-      });
+  const DosenPage: React.FC = () => {
+    const [form] = Form.useForm();
+    const [dosen, setDosen] = useState<Dosen[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [totalElements, setTotalElements] = useState(0);
+    const [editingKey, setEditingKey] = useState('');
+    const [isModalVisible, setIsModalVisible] = useState(false);
 
-      if (response.ok) {
-        setdosen(prevdosen =>
-          prevdosen.map(dosen => (dosen.id === dosenId ? updatedDosen : dosen))
-        );
-        setIsEditing(null); 
-      } else {
-        console.error('Failed to update dosen');
+    useEffect(() => {
+      fetchDosen();
+    }, [currentPage, pageSize]);
+
+    const fetchDosen = async () => {
+      setLoading(true);
+      try {
+        const response = await axios.get(`http://127.0.0.1:8000/api/dosen?page=${currentPage}&size=${pageSize}`);
+        setDosen(response.data.items);
+        setTotalElements(response.data.total_elements);
+      } catch (error) {
+        console.error('Error fetching dosen:', error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error updating dosen:', error);
-    }
-  };
+    };
 
-  const handleAddDosen = async (newDosen: Dosen) => {
-    try {
-      const response = await fetch('http://127.0.0.1:8000/dosen/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newDosen),
+    const isEditing = (record: Dosen) => record.id === editingKey;
+
+    const edit = (record: Dosen) => {
+      form.setFieldsValue({ ...record });
+      setEditingKey(record.id);
+    };
+
+    const cancel = () => {
+      setEditingKey('');
+    };
+
+    const save = async (id: number) => {
+      try {
+        const updatedDosen = await form.validateFields();
+        await axios.put(`http://127.0.0.1:8000/api/dosen/${id}`, updatedDosen);
+        setDosen(dosen.map((item) => (item.id === id ? { ...item, ...updatedDosen } : item)));
+        setEditingKey('');
+      } catch (errInfo) {
+        console.log('Validate Failed:', errInfo);
+      }
+    };
+
+    const handleDelete = async (id: number) => {
+      try {
+        await axios.delete(`http://127.0.0.1:8000/api/dosen/${id}`);
+        setDosen(dosen.filter((item) => item.id !== id));
+      } catch (error) {
+        console.error('Error deleting dosen:', error);
+      }
+    };
+
+    const handleAddDosen = async (newDosen: Dosen) => {
+      try {
+        const response = await axios.post('http://127.0.0.1:8000/api/dosen', newDosen);
+        setDosen([...dosen, response.data]);
+        setIsModalVisible(false);
+      } catch (error) {
+        console.error('Error adding dosen:', error);
+      }
+    };
+
+    const handleSave = (row: Dosen) => {
+      const newData = [...dosen];
+      const index = newData.findIndex((item) => row.id === item.id);
+      const item = newData[index];
+      newData.splice(index, 1, {
+        ...item,
+        ...row,
       });
-      const createdDosen = await response.json();
-      setdosen([...dosen, createdDosen]);
-    } catch (error) {
-      console.error('Error adding dosen:', error);
-    }
+      setDosen(newData);
+    };
+
+    const columns = [
+      {
+        title: 'NIP',
+        dataIndex: 'nip',
+        editable: true,
+        sorter: (a: Dosen, b: Dosen) => a.nip.localeCompare(b.nip),
+      },
+      {
+        title: 'NIDN',
+        dataIndex: 'nidn',
+        editable: true,
+        sorter: (a: Dosen, b: Dosen) => a.nidn.localeCompare(b.nidn),
+      },
+      {
+        title: 'NIDN',
+        dataIndex: 'nidn',
+        editable: true,
+        sorter: (a: Dosen, b: Dosen) => a.nidn.localeCompare(b.nidn),
+      },
+      {
+        title: 'Nama Depan',
+        dataIndex: 'nama_depan',
+        editable: true,
+        sorter: (a: Dosen, b: Dosen) => a.nama_depan.localeCompare(b.nama_depan),
+      },
+      {
+        title: 'Nama Belakang',
+        dataIndex: 'nama_belakang',
+        editable: true,
+        sorter: (a: Dosen, b: Dosen) => a.nama_belakang.localeCompare(b.nama_belakang),
+      },
+      {
+        title: 'Alamat',
+        dataIndex: 'alamat',
+        editable: true,
+        sorter: (a: Dosen, b: Dosen) => a.alamat.localeCompare(b.alamat),
+      },
+      {
+        title: 'Operation',
+        dataIndex: 'operation',
+        render: (_, record: Dosen) => {
+          const editable = isEditing(record);
+          return editable ? (
+            <span>
+              <Typography.Link onClick={() => save(record.id)} style={{ marginRight: 8 }}>
+                Save
+              </Typography.Link>
+              <Popconfirm title="Sure to cancel?" onConfirm={cancel}>
+                <Typography.Link>Cancel</Typography.Link>
+              </Popconfirm>
+            </span>
+          ) : (
+            <Typography.Link disabled={editingKey !== ''} onClick={() => edit(record)}>
+              Edit
+            </Typography.Link>
+          );
+        },
+      },
+      {
+        title: 'Action',
+        dataIndex: 'action',
+        render: (_, record: Dosen) =>
+          dosen.length >= 1 ? (
+            <Popconfirm title="Sure to delete?" onConfirm={() => handleDelete(record.id)}>
+              <Button danger>Delete</Button>
+            </Popconfirm>
+          ) : null,
+      },
+    ];
+
+    const mergedColumns = columns.map((col) => {
+      if (!col.editable) {
+        return col;
+      }
+      return {
+        ...col,
+        onCell: (record: Dosen) => ({
+          record,
+          editable: col.editable,
+          dataIndex: col.dataIndex,
+          title: col.title,
+          handleSave,
+        }),
+      };
+    });
+
+    const showModal = () => {
+      setIsModalVisible(true);
+    };
+
+    const handleCancel = () => {
+      setIsModalVisible(false);
+    };
+
+    const handleFormSubmit = async (values: Dosen) => {
+      await handleAddDosen(values);
+    };
+
+    return (
+      <div>
+        <Button onClick={showModal} type="primary" style={{ marginBottom: 16 }}>
+          Add Dosen
+        </Button>
+        <Table
+          components={{
+            body: {
+              row: EditableRow,
+              cell: EditableCell,
+            },
+          }}
+          bordered
+          dataSource={dosen}
+          columns={mergedColumns}
+          rowClassName="editable-row"
+          pagination={{
+            current: currentPage,
+            pageSize: pageSize,
+            total: totalElements,
+            onChange: (page, pageSize) => {
+              setCurrentPage(page);
+              setPageSize(pageSize);
+            },
+          }}
+          loading={loading}
+        />
+        <Modal title="Add Dosen" open={isModalVisible} onCancel={handleCancel} footer={null}>
+          <Form onFinish={handleFormSubmit} layout="vertical">
+            <Form.Item name="nip" label="NIP" rules={[{ required: true, message: 'Please input NIP!' }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="nidn" label="NIDN" rules={[{ required: true, message: 'Please input NIDN!' }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="nama_depan" label="Nama Depan" rules={[{ required: true, message: 'Please input Nama Depan!' }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="nama_belakang" label="Nama Belakang" rules={[{ required: true, message: 'Please input Nama Belakang!' }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="alamat" label="Alamat" rules={[{ required: true, message: 'Please input Alamat!' }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item>
+              <Button type="primary" htmlType="submit">
+                Submit
+              </Button>
+            </Form.Item>
+          </Form>
+        </Modal>
+      </div>
+    );
   };
 
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-4 mt-8">
-        <h1 className="text-2xl font-bold ">Daftar Dosen</h1>
-        <button onClick={() => setIsNewDosenModalOpen(true)} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Tambah Dosen</button>
-        <AddDosenModal isOpen={isNewDosenModalOpen} onClose={() => setIsNewDosenModalOpen(false)} onAddDosen={handleAddDosen} /> 
-      </div>
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              NIP
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              NIDN
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Inisial
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Nama Lengkap
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Alamat
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Agama
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Telp Seluler
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Aksi
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {dosen.map(dosen => (
-            <tr key={dosen.id}>
-              <td className="px-6 py-4 whitespace-nowrap">{dosen.nip}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{dosen.nidn}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{dosen.inisial}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{dosen.gelar_depan} {dosen.nama_depan} {dosen.nama_belakang} {dosen.gelar_belakang}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{dosen.alamat}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{dosen.agama}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{dosen.telp_seluler}</td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                {isEditing === dosen.id ? (
-                  <button
-                    onClick={() => handleSave(dosen.id, dosen)}
-                    className="text-indigo-600 hover:text-indigo-900"
-                  >
-                    Simpan
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => handleEdit(dosen.id)}
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(dosen.id)}
-                      className="text-red-600 hover:text-red-900 ml-2"
-                    >
-                      Hapus
-                    </button>
-                  </>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
-
-export default DosenList;
-
-
+  export default DosenPage;
