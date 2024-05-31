@@ -16,23 +16,25 @@ const AddEditModal: React.FC<AddEditModalProps> = ({ visible, onCancel, onFinish
   delete initialValues.updated_at;
 
   return (
-    <Modal title={editingRecord ? "Edit Record" : "Add Record"} visible={visible} onCancel={onCancel} footer={null}>
+    <Modal title={editingRecord ? "Edit Record" : "Add Record"}  open={visible} onCancel={onCancel} footer={null}>
       <Form onFinish={onFinish} layout="vertical" initialValues={initialValues}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <div style={{ flex: 1, marginRight: 8 }}>
-            {Object.keys(template).filter(key => !['id', 'created_at', 'updated_at'].includes(key)).slice(0, Math.ceil(Object.keys(template).length / 2)).map((key) => (
+            {Object.keys(template).filter(key => !['id', 'created_at', 'updated_at'].includes(key)).slice(0, Math.ceil(Object.keys(template).length / 3)).map((key) => (
               <Form.Item key={key} name={key} label={key.replace(/_/g, ' ')} rules={[{ required: true, message: `Please input ${key.replace(/_/g, ' ')}!` }]}>
                 <Input />
               </Form.Item>
             ))}
           </div>
+         
           <div style={{ flex: 1, marginLeft: 8 }}>
-            {Object.keys(template).filter(key => !['id', 'created_at', 'updated_at'].includes(key)).slice(Math.ceil(Object.keys(template).length / 2)).map((key) => (
+            {Object.keys(template).filter(key => !['id', 'created_at', 'updated_at'].includes(key)).slice(Math.ceil(Object.keys(template).length / 3)).map((key) => (
               <Form.Item key={key} name={key} label={key.replace(/_/g, ' ')} rules={[{ required: true, message: `Please input ${key.replace(/_/g, ' ')}!` }]}>
                 <Input />
               </Form.Item>
             ))}
           </div>
+          
         </div>
         <Form.Item>
           <Button htmlType="submit">

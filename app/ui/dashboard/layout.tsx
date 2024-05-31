@@ -1,12 +1,19 @@
+import { Layout } from 'antd';
 import SideNav from '@/app/ui/dashboard/sidenav';
- 
-export default function Layout({ children }: { children: React.ReactNode }) {
+
+const { Content } = Layout;
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen flex-col md:flex-row md:overflow-hidden">
-      <div className="w-full flex-none md:w-64">
-        <SideNav />
-      </div>
-      <div className="flex-grow p-6 md:overflow-y-auto md:p-12">{children}</div>
-    </div>
+    <Layout style={{ minHeight: '100vh' }}>
+      <SideNav />
+      <Layout>
+        <Content style={{ overflow: 'initial' }}>
+          <div style={{ background: '#fff', minHeight: 360 }}>
+            {children}
+          </div>
+        </Content>
+      </Layout>
+    </Layout>
   );
 }
